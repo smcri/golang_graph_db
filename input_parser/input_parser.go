@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	prompt "github.com/c-bata/go-prompt"
 	"github.com/smcri/golang_graph_db/file_io"
 )
 
@@ -16,6 +17,7 @@ func read_key(key string, node string) (interface{}, error) {
 		return nil, err
 	}
 	if key == "*" {
+		fmt.Println("JSON : ", node_json)
 		return node_json, err
 	}
 	required_value, exists := node_json[key]
@@ -93,23 +95,119 @@ func create_relation(from string, to string, relation string) error {
 
 }
 
-func Parse(input string) error {
+func Parse(input string) {
 	parse_list := strings.Fields(input)
-	switch parse_list[0] {
-	case "READ":
-		read_key(parse_list[1], parse_list[2])
-	case "WRITE":
-		write_key(parse_list[1], parse_list[2], parse_list[3])
-	case "DELETE":
-		delete_key(parse_list[1], parse_list[2])
-	case "DELETE_NODE":
-		delete_node(parse_list[1])
-	case "CREATE_RELATION":
-		create_relation(parse_list[1], parse_list[2], parse_list[3])
-	default:
-		return fmt.Errorf("unknown command: %s", parse_list[0])
 
+	if len(parse_list) == 0 {
+		fmt.Println("No command entered.")
+		return
 	}
 
-	return nil
+	if parse_list[0] == "EXIT" {
+		fmt.Println("Exiting the shell...")
+		os.Exit(0)
+		return
+	}
+
+	switch parse_list[0] {
+	case "READ":
+		if len(parse_list) < 3 {
+			fmt.Println("Usage: READ <key> <node>")
+			return
+		}
+		read_key(parse_list[1], parse_list[2])
+
+	case "WRITE":
+		if len(parse_list) < 4 {
+			fmt.Println("Usage: WRITE <key> <value> <node>")
+			return
+		}
+		write_key(parse_list[1], parse_list[2], parse_list[3])
+
+	case "DELETE":
+		if len(parse_list) < 3 {
+			fmt.Println("Usage: DELETE <key> <node>")
+			return
+		}
+		delete_key(parse_list[1], parse_list[2])
+
+	case "DELETE_NODE":
+		if len(parse_list) < 2 {
+			fmt.Println("Usage: DELETE_NODE <node>")
+			return
+		}
+		delete_node(parse_list[1])
+
+	case "CREATE_RELATION":
+		if len(parse_list) < 4 {
+			fmt.Println("Usage: CREATE_RELATION <source_node> <target_node> <relation>")
+			return
+		}
+		create_relation(parse_list[1], parse_list[2], parse_list[3])
+
+	default:
+		fmt.Printf("Unknown command: %s\n", parse_list[0])
+	}
+}
+
+func Completer(d prompt.Document) []prompt.Suggest {
+	text := strings.TrimSpace(d.TextBeforeCursor())
+	words := strings.Fields(text)
+
+	// Base commands
+	baseCommands := []prompt.Suggest{
+		{Text: "READ", Description: "Read a key from a node"},
+		{Text: "WRITE", Description: "Write a value to a key in a node"},
+		{Text: "DELETE", Description: "Delete a key from a node"},
+		{Text: "DELETE_NODE", Description: "Delete a node"},
+		{Text: "CREATE_RELATION", Description: "Create a relation between two nodes"},
+		{Text: "EXIT", Description: "Exit the shell"},
+	}
+
+	if len(words) == 0 {
+		return baseCommands
+	}
+
+	switch words[0] {
+	case "READ":
+		switch len(words) {
+		case 1:
+			return []prompt.Suggest{{Text: "<key>", Description: "Key name"}}
+		case 2:
+			return []prompt.Suggest{{Text: "<node>", Description: "Node ID"}}
+		}
+	case "WRITE":
+		switch len(words) {
+		case 1:
+			return []prompt.Suggest{{Text: "<key>", Description: "Key name"}}
+		case 2:
+			return []prompt.Suggest{{Text: "<value>", Description: "Value to store"}}
+		case 3:
+			return []prompt.Suggest{{Text: "<node>", Description: "Node ID"}}
+		}
+	case "DELETE":
+		switch len(words) {
+		case 1:
+			return []prompt.Suggest{{Text: "<key>", Description: "Key name"}}
+		case 2:
+			return []prompt.Suggest{{Text: "<node>", Description: "Node ID"}}
+		}
+	case "DELETE_NODE":
+		if len(words) == 1 {
+			return []prompt.Suggest{{Text: "<node>", Description: "Node ID to delete"}}
+		}
+	case "CREATE_RELATION":
+		switch len(words) {
+		case 1:
+			return []prompt.Suggest{{Text: "<source_node>", Description: "Source node"}}
+		case 2:
+			return []prompt.Suggest{{Text: "<target_node>", Description: "Target node"}}
+		case 3:
+			return []prompt.Suggest{{Text: "<relation>", Description: "Relationship label"}}
+		}
+	default:
+		return prompt.FilterHasPrefix(baseCommands, words[0], true)
+	}
+
+	return []prompt.Suggest{}
 }
